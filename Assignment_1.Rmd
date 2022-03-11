@@ -1,0 +1,333 @@
+---
+title: "Assignment_1"
+author: "Joachim Muench"
+date: "6 12 2021"
+output: pdf_document
+---
+
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+
+##Excercises of chapter "Geographic data in R"
+#Loading needed libraries:
+library(terra)
+library(sf)
+library(spData)
+library(spDataLarge)
+library(dplyr)
+
+#E1 Use summary()on the geometry column of the world data object. What does the output tell us about:
+#Its geometry type?
+#The number of countries?
+#Its coordinate reference system (CRS)?
+summary(world$geom)
+#shown is geom type and how often it is used, which is equal to the number of countries in this data.frame. Furthermore it shows the SRID representation and that it is based on the Greenwich meridian as 0 longitude an the equator as 0 latitude.
+
+#E2
+#Run the code that ‘generated’ the map of the world in Section 2.2.4 Base plot arguments. Find two similarities and two differences between the image on your computer and that in the book.
+#What does the cex argument do (see ?plot)?
+#Why was the cex in this way?
+#Bonus: experiment with different ways to visualize the global population.
+plot(world["continent"], reset = FALSE)
+cex = sqrt(world$pop) / 10000
+world_cents = st_centroid(world, of_largest = TRUE)
+plot(st_geometry(world_cents), add = TRUE, cex = cex)
+
+#the cex argument sets the dimension of the circles. It was was chosen "squareroot per 1000", since it is large enough to show the differences and small enough to be optical related to the country multipolygons.
+#like the book the continents are shown with different colours and the population for any country is shown by circles of related extends, but unlike the book longtitudes and and latitudes are not shown and without projection. 
+cex = log(world$pop)
+world_cents_2 = st_centroid(world, of_largest = TRUE)
+plot(st_geometry(world_cents_2), add = TRUE, cex = cex/2)
+plot(st_geometry(world_cents_2), add = TRUE, cex = sqrt(cex))
+#setting cex to logarithm makes the population differences so much confusing, since the cycles are much larger than the Multypoligons of the countries.
+
+#E3
+#Use plot() to create maps of Nigeria in context.
+
+#Adjust the lwd, col and expandBB arguments of plot().
+#Challenge: read the documentation of text() and annotate the map.
+world_africa = world[world$continent == "Africa",]
+nigeria = world[world$name_long == "Nigeria", ]
+cex_2 = world$lifeExp*100
+africa_cents = st_centroid(world_africa, of_largest = TRUE)
+plot(st_geometry(nigeria), expandBB = c(1, 0.5, 0.3, 1), col = "gray", lwd = 2.5)  
+plot(st_geometry(world_africa), add = TRUE, cex = cex_2)
+text(st_geometry(nigeria), x=1, y=NULL, labels = "Nigeria", adj= c(0,0), pos= 3, cex= 0.5, col= "white")
+#The plot is very small, since the content is shown on a map leaving enough space for plotting the whole world.
+#The small size might be the reason the legend text isnot shown.
+
+#E4
+# Create an empty SpatRaster object called my_raster with 10 columns and 10 rows. Assign random values between 0 and 10 to the new raster and plot it.
+my_rast = rast(nrows=10,ncols=10, xmin=0, xmax=10,ymin=0,ymax=10)
+values(my_rast)= c(2,5,7,8,6,2,9,6,5,4,8,1,0,10,7,3,1,6,9,5,10,9,4,7,1,0,7,2,3,0,10,7,5,9,5,0,10,5,8,2,4,2,9,5,10,7,6,1,0,7,10,7,9,5,6,2,9,4,0,2,10,8,4,9,1,6,5,9,2,10,8,9,3,5,9,1,0,4,5,7,2,1,8,0,10,7,6,3,2,6,5,10,7,2,5,8,1,10,7,9)
+plot(my_rast)
+#The content is a funny square pattern with small squares in eleven different colors. Every color represents a special value.
+
+#E5
+#Read-in the raster/nlcd.tif file from the spDataLarge package. What kind of information can you get about the properties of this file?
+raster_filepath = system.file("raster/nlcd.tif", package = "spDataLarge")
+my_rast_2=rast(raster_filepath)
+my_rast_2
+#The file´s properties are the number of rows, columns and layers and therefore the number of cells as well as their values, the resolution of a single point, the CRS and the extent in the chosen coordination reference sytem. Furthermore it shows the dataclass, the source and name.
+
+#E6
+#Check the CRS of the raster/nlcd.tif file from the spDataLarge package. What kind of information you can learn from it?
+crs(my_rast_2)
+#It shows the information of the projection, of the time zone, the datum, its ellipsoid, its prime meridian, the angle unit, the SRIDand its conversion to UTM 12N, the projection method, the converted ID,the origin latitude and longitude with its respectively angleunit, the factor of natural origin with its respectively scaleunit and respectively ID, the false parameter for northing as well as easting, the lengthunit in both directions with their respectively IDs, the cartesian, the east and north axis with its order and lengthunit and last but not least the usage of this map as well as the area shown on it.
+
+##Exercises of chapter "Spatial data operations"
+#Loading needed data
+elev = rast(system.file("raster/elev.tif", package = "spData"))
+grain = rast(system.file("raster/grain.tif", package = "spData"))
+#E1
+#It was established in Section 4.2 that Canterbury was the region of New Zealand containing most of the 100 highest points in the country. How many of these high points does the Canterbury region contain?
+canterbury = nz %>% filter(Name == "Canterbury")
+canterbury_height = nz_height[canterbury, ]
+canterbury_height
+#70 of the 101 highest points of New Zealand are lying in Canterbury region.
+
+#E2
+#Which region has the second highest number of nz_height points in, and how many does it have?
+#searching the names for all New Zealand regions.
+nz
+nz$Name
+#Testing all 16 regions, if there are nz_height points. 
+Northland = nz%>%filter(Name=="Northland")
+Northland_height= nz_height[Northland, ]
+Northland_height
+Auckland= nz%>%filter(Name=="Auckland")
+Auckland_height = nz_height[Auckland, ]
+Auckland_height
+Waikato= nz%>%filter(Name=="Waikato")
+Waikato_height = nz_height[Waikato, ]
+Waikato_height
+Bay_of_Plenty= nz%>%filter(Name=="Bay of Plenty")
+Bay_of_Plenty_height = nz_height[Bay_of_Plenty, ]
+Bay_of_Plenty_height
+Gisborne= nz%>%filter(Name=="Gisborne")
+Gisborne_height = nz_height[Gisborne, ]
+Gisborne_height
+Hawkes_Bay= nz%>%filter(Name=="Hawke´s Bay")
+Hawkes_Bay_height = nz_height[Hawkes_Bay, ]
+Hawkes_Bay_height
+Taranaki= nz%>%filter(Name=="Taranaki")
+Taranaki_height = nz_height[Taranaki, ]
+Taranaki_height
+Manawatu_Wanganui= nz%>%filter(Name=="Manawatu-Wanganui")
+Manawatu_Wanganui_height = nz_height[Manawatu_Wanganui, ]
+Manawatu_Wanganui_height
+Wellington= nz%>%filter(Name=="Wellington")
+Wellington_height = nz_height[Wellington, ]
+Wellington_height
+West_Coast= nz%>%filter(Name=="West Coast")
+West_Coast_height = nz_height[West_Coast, ]
+West_Coast_height
+Otago= nz%>%filter(Name=="Otago")
+Otago_height = nz_height[Otago, ]
+Otago_height
+Southland= nz%>%filter(Name=="Southland")
+Southland_height = nz_height[Southland, ]
+Southland_height
+Tasman= nz%>%filter(Name=="Tasman")
+Tasman_height = nz_height[Tasman, ]
+Tasman_height
+Nelson= nz%>%filter(Name=="Nelson")
+Nelson_height = nz_height[Nelson, ]
+Nelson_height
+Marlborough= nz%>%filter(Name=="Marlborough")
+Marlborough_height = nz_height[Marlborough, ]
+Marlborough_height
+#The region with the second most highest points is West Coast. There are 22 of the highest points.
+
+#E3
+#Generalizing the question to all regions: how many of New Zealand’s 16 regions contain points which belong to the top 100 highest points in the country? Which regions?
+#The highest points of New Zealand regions are distributed into seven country regions. These regions are Canterbury,West Coast, Waikato, Manawat-Wanganui, Otago, Southland and Marlborough.
+#Bonus: create a table listing these regions in order of the number of points and their name.
+region_name=c("Canterbury","West Coast","Waikato","Manawatu-Wanganui","Otago","Southland","Marlborough")
+high_points=c(70,22,3,2,2,1,1)
+high_mountain_regions=data.frame(region_name,high_points)
+high_mountain_regions
+
+#E4
+#Use dem = rast(system.file("raster/dem.tif", package = "spDataLarge")), and reclassify the elevation in three classes: low (<300), medium and high (>500). Secondly, read the NDVI raster (ndvi = rast(system.file("raster/ndvi.tif", package = "spDataLarge"))) and compute the mean NDVI and the mean elevation for each altitudinal class.
+dem = rast(system.file("raster/dem.tif", package = "spDataLarge"))
+rcl = matrix(c(0, 299, 1, 300, 500, 2, 501, 1094, 3), ncol = 3, byrow = TRUE)
+rcl
+recl = classify(dem, rcl = rcl)
+recl
+ndvi = rast(system.file("raster/ndvi.tif", package = "spDataLarge"))
+rcl_2 =matrix(c(-0.4,-0.2,1,-0.1,0.1,2,0.2,0.4,3), ncol = 3, byrow = TRUE) 
+rcl_2
+recl_2=classify(ndvi, rcl=rcl_2)
+recl_2
+zonal(dem,recl, fun="mean")
+zonal(ndvi,recl_2, fun="mean")
+#E5
+#Apply a line detection filter to rast(system.file("ex/logo.tif", package = "terra")). Plot the result. Hint: Read ?terra::focal().
+r=rast(system.file("ex/logo.tif", package = "terra"))
+r_focal = focal(r, w = matrix(0.00001, nrow = 1, ncol = 3), fun = min)
+r_focal
+plot(r)
+plot(r_focal)
+r_focal_1 = focal(r, w = matrix(1, nrow = 3, ncol = 3), fun = mean, na.rm=TRUE, na.only= TRUE)
+r_focal_1
+plot(r)
+plot(r_focal_1)
+#Using only na-values the minimum value is exactly the lowest possible value.
+r_focal_2 = focal(r, w = matrix(1, nrow = 3, ncol = 3), fun = min)
+r_focal_2
+plot(r)
+plot(r_focal_2)
+#setting minimum as function brings the same result as setting mean as function with using only na-values
+r_focal_3 = focal(r, w = matrix(1, nrow = 3, ncol = 3), fun = max)
+r_focal_3
+plot(r)
+plot(r_focal_3)
+#setting maximum as function brings a slightly hingher minimum value, but the maximum value stays the same as weith mean or minimum
+r_focal_4 = focal(r, w = matrix(1, nrow = 3, ncol = 3), fun = median)
+r_focal_4
+plot(r)
+plot(r_focal_4)
+#setting median as function the result is the same as setting minimum.
+r_focal_5 = focal(r, w = matrix(1, nrow = 3, ncol = 3), fun = sum)
+r_focal_5
+plot(r)
+plot(r_focal_5)
+#setting sum as funtion, not only the minimum but also the maximum value increases.
+
+#E6
+#Calculate the Normalized Difference Water Index (NDWI; (green - nir)/(green + nir)) of a Landsat image. Use the Landsat image provided by the spDataLarge package (system.file("raster/landsat.tif", package = "spDataLarge")). Also, calculate a correlation between NDVI and NDWI for this area.
+#computing ndwi
+ndwi_fun = function(nir, green){
+  (green-nir) / (green + nir)
+}
+la=system.file("raster/landsat.tif", package = "spDataLarge")
+multi_rast = rast(la)
+summary(multi_rast)
+ndwi_rast = lapp(multi_rast[[c(4, 3)]], fun = ndwi_fun)
+
+#compuing ndvi
+ndvi_fun = function(nir, red){
+  (nir - red) / (nir + red)
+}
+ndvi_rast=lapp(multi_rast[[c(4, 3)]], fun= ndvi_fun)
+
+#converting to matrix
+v=as.matrix(ndvi_rast)
+w=as.matrix(ndwi_rast)
+
+#computing model for correlation between ndwi and ndvi.
+lmod=lm(v ~ w)
+lmod
+summary(lmod)
+anova(lmod)
+#Although the ANOVA F-tests are called as unreliable the small F-Value of 2.2e-16 implys a significant high correlation between both indices.
+#Excercise 2:
+#Read and work through Robert Hijmans’ page about unsupervised classification. Follow his guidelines. Instead of the example data from Robert’s tutorial, please use either the Sentinel data or the DOP data (not both). Since you will not find sufficient water areas in the data (unlike in Roberts’ example) you can combine the vegetation-covered classes and the vegetation-free classes.
+#Sourcing setup scribt and DOP file
+require(envimaR)
+rootDIR = "C:/Users/jomue/edu/geoAI"
+appendpackagesToLoad = c("httr")
+source(file.path(envimaR::alternativeEnvi(root_folder = rootDIR),"src/geoAI_setup.R"),echo = TRUE)
+geoai_user= "geoai"
+pw="ck@jx|xc?m2w"
+httr::GET("http://85.214.102.111/geo_data/data/01_raw_data/aerial/marburg_dop.tif", 
+          authenticate(geoai_user,pw),
+          rasterStack = raster::stack(file.path(envrmt$path_data, "marburg_dop.tif")))
+rasterStack = raster::stack(file.path(envrmt$path_data, "marburg_dop.tif"))
+library(osmdata)
+buildings = opq(bbox = "marburg de") %>% 
+  add_osm_feature(key = "building") %>% 
+  osmdata_sf()
+buildings = buildings$osm_polygons
+mapview::mapview(buildings)
+raster::crs(rasterStack)
+raster::crs(buildings)
+raster::compareCRS(rasterStack, buildings)
+buildings = sf::st_transform(buildings, crs(rasterStack))
+crs(buildings)
+raster::plotRGB(rasterStack)
+mapview(rasterStack)
+red   <- rasterStack[[1]]
+green <- rasterStack[[2]]
+blue  <- rasterStack[[3]]
+NDTI <- (red - green) / (red + green)
+names(NDTI) <- "NDTI"
+VARI <- (green - red) / (green + red - blue)
+names(VARI) <- "VARI"
+TGI <- -0.5*(190*(red - green)- 120*(red - blue))
+names(TGI) <- "TGI"
+rgbI <- raster::stack(NDTI, VARI, TGI)
+raster::plot(rgbI)
+marburg_stack <- stack(rasterStack, rgbI)
+
+#Using for Robert´s tutorial.
+names(marburg_stack)=c('blue', 'green', 'red', 'NIR', 'SWIR1', 'SWIR2',"unknown")
+ndvi <- (marburg_stack[['NIR']] - marburg_stack[['red']]) / (marburg_stack[['NIR']] + marburg_stack[['red']])
+# Extent to crop ndvi layer
+e <- extent(481000, 482000, 5626000, 5627000)
+# crop landsat by the extent
+ndvi <- crop(ndvi, e)
+ndvi
+nr <- getValues(ndvi)
+str(nr)
+# It is important to set the seed generator because `kmeans` initiates the centers in random locations
+set.seed(99)
+# We want to create 10 clusters, allow 500 iterations, start with 5 random sets using "Lloyd" method
+kmncluster <- kmeans(na.omit(nr), centers = 10, iter.max = 500, nstart = 5, algorithm="Lloyd")
+# kmeans returns an object of class "kmeans"
+str(kmncluster)
+
+knr <- setValues(ndvi, kmncluster$cluster)
+
+knr <- raster(ndvi)
+values(knr) <- kmncluster$cluster
+knr
+
+
+# Define a color vector for 10 clusters (learn more about setting the color later)
+mycolor <- c("#fef65b","#ff0000", "#daa520","#0000ff","#0000ff","#00ff00","#cbbeb5",
+             "#c3ff5b", "#ff7373", "#00ff00", "#808080")
+
+par(mfrow = c(1,2))
+plot(ndvi, col = rev(terrain.colors(10)), main = 'Marburg-NDVI')
+plot(knr, main = 'Unsupervised classification', col = mycolor)
+legend.text= c("unkn","beech","oak","building","meadow","place","grassland","field","garden","street")
+#the legend text is set but not shown in the Plot.
+
+
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+
+## Including Plots
+
+#Geographical data in R
+#E2
+https://rpubs.com/king_george/844216
+
+#E3
+https://rpubs.com/king_george/844217
+
+#E4
+https://rpubs.com/king_george/844218
+
+#Spatial data operations
+#E5
+https://rpubs.com/king_george/844219
+https://rpubs.com/king_george/844220
+https://rpubs.com/king_george/844221
+https://rpubs.com/king_george/844222
+https://rpubs.com/king_george/844224
+https://rpubs.com/king_george/844225
+
+#Exercise 2
+#unsupervised classification using Robert Hijmans´guilines
+https://rpubs.com/king_george/844263
+
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+
+
